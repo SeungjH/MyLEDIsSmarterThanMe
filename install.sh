@@ -4,7 +4,7 @@
 BIN_DIR="$HOME/.local/bin"
 PLIST_PATH="$HOME/Library/LaunchAgents/com.user.langled.plist"
 
-echo "Setting up Mac Lang LED..."
+echo "Setting up MyLEDIsSmarterThanMe..."
 
 # Create local bin directory
 mkdir -p "$BIN_DIR"
