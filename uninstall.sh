@@ -3,7 +3,7 @@
 PLIST_PATH="$HOME/Library/LaunchAgents/com.user.langled.plist"
 BIN_DIR="$HOME/.local/bin"
 
-echo "Removing Mac Lang LED..."
+echo "Removing MyLEDIsSmarterThanMe..."
 
 # Unload background service
 launchctl unload "$PLIST_PATH" 2>/dev/null
