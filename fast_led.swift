@@ -1,8 +1,9 @@
+cat << 'EOF' > ~/.local/bin/fast_led.swift
 #!/usr/bin/swift
 import Cocoa
 import Carbon
 
-func updateLED() {
+func enforceLED() {
     let source = TISCopyCurrentKeyboardInputSource().takeRetainedValue()
     let idPtr = TISGetInputSourceProperty(source, kTISPropertyInputSourceID)
     let idString = Unmanaged<CFString>.fromOpaque(idPtr!).takeUnretainedValue() as String
@@ -11,23 +12,26 @@ func updateLED() {
     let home = FileManager.default.homeDirectoryForCurrentUser.path
     task.executableURL = URL(fileURLWithPath: "\(home)/.local/bin/setleds")
     
-    // Modify "US" below if your primary layout ID differs
     if idString.hasSuffix("US") {
         task.arguments = ["+caps"]
     } else {
         task.arguments = ["-caps"]
     }
+    
     try? task.run()
+    task.waitUntilExit()
 }
 
-updateLED()
+// 1. Run immediately on load
+enforceLED()
 
-DistributedNotificationCenter.default().addObserver(
-    forName: NSNotification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String),
-    object: nil,
-    queue: nil
-) { _ in
-    updateLED()
+// 2. The Brute Force Timer: Re-apply the LED state every 1 second, forever.
+Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+    enforceLED()
 }
 
 RunLoop.main.run()
+EOF
+
+launchctl unload ~/Library/LaunchAgents/com.user.langled.plist 2>/dev/null
+launchctl load ~/Library/LaunchAgents/com.user.langled.plist
