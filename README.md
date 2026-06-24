@@ -1,4 +1,4 @@
-# Mac Lang LED
+# MyLEDIsSmarterThanMe
 
 A lightweight, zero-CPU background daemon for macOS that uses the physical Caps Lock LED to indicate your active keyboard layout. It hooks directly into macOS's native Swift notification center to toggle the light instantly, without forcing your typing into ALL CAPS.
 
@@ -19,8 +19,8 @@ xcode-select --install
 ## Installation
 1. Clone this repository to your local machine:
 ```bash
-git clone [https://github.com/SeungjH/mac-lang-led.git](https://github.com/SeungjH/mac-lang-led.git)
-cd mac-lang-led
+git clone [https://github.com/SeungjH/MyLEDIsSmarterThanMe.git](https://github.com/SeungjH/MyLEDIsSmarterThanMe.git)
+cd MyLEDIsSmarterThanMe
 ```
 2. Make the installer executable and run it:
 ```bash
