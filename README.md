@@ -7,6 +7,9 @@ A lightweight, zero-CPU background daemon for macOS that uses the physical Caps 
 * **Instantaneous:** Hooks natively into Apple's `TIS` input sources for zero-latency switching.
 * **Native Compatibility:** Designed to work perfectly alongside the native macOS *"Use the Caps Lock key to switch to and from [Language]"* setting.
 
+## Side Notes
+* **Tested on a Macbook Pro 16 inch (late 2024) running macOS Sequoia 15.6.1
+
 ## Prerequisites
 Ensure the Xcode Command Line Tools are installed on your Mac. Open Terminal and run:
 ```bash
