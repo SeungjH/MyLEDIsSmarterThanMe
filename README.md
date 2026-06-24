@@ -31,6 +31,7 @@ chmod +x install.sh
 ## Customization
 By default, the daemon turns the LED **ON** for the `US` English layout and **OFF** for everything else. 
 If your primary language uses a different internal layout ID (e.g., `ABC`), open `fast_led.swift` and modify the `"US"` string to match your desired ID. Run `./install.sh` again to apply the changes.
+(Planning to automate this furthur on)
 
 ## Uninstallation
 To completely remove the daemon and all associated background files:
