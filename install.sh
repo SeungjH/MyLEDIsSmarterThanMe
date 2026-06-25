@@ -21,6 +21,11 @@ echo "Installing Swift daemon..."
 cp fast_led.swift "$BIN_DIR/"
 chmod +x "$BIN_DIR/fast_led.swift"
 
+# Clean up any stuck processes before generating the new service
+echo "Clearing old processes..."
+launchctl unload "$PLIST_PATH" 2>/dev/null
+pkill -f fast_led.swift 2>/dev/null
+
 # Generate LaunchAgent configuration
 echo "Configuring background service..."
 cat << LAUNCH_AGENT_EOF > "$PLIST_PATH"
@@ -32,19 +37,21 @@ cat << LAUNCH_AGENT_EOF > "$PLIST_PATH"
     <string>com.user.langled</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/bin/swift</string>
         <string>$BIN_DIR/fast_led.swift</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/langled_output.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/langled_error.log</string>
 </dict>
 </plist>
 LAUNCH_AGENT_EOF
 
 # Restart LaunchAgent
-launchctl unload "$PLIST_PATH" 2>/dev/null
 launchctl load "$PLIST_PATH"
 
 echo "Installation complete! The background daemon is now active."
