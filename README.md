@@ -19,7 +19,7 @@ xcode-select --install
 ## Installation
 1. Clone this repository to your local machine:
 ```bash
-git clone [https://github.com/SeungjH/MyLEDIsSmarterThanMe.git](https://github.com/SeungjH/MyLEDIsSmarterThanMe.git)
+git clone https://github.com/SeungjH/MyLEDIsSmarterThanMe.git
 cd MyLEDIsSmarterThanMe
 ```
 2. Make the installer executable and run it:
