@@ -1,4 +1,4 @@
-cat << 'EOF' > ~/.local/bin/fast_led.swift
+cat << 'EOF' > fast_led.swift
 #!/usr/bin/swift
 import Cocoa
 import Carbon
@@ -25,12 +25,16 @@ func enforceLED() {
 // 1. Run immediately on load
 enforceLED()
 
-// 2. The Brute Force Timer
-Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+// 2. The Instant Event Listener (Replaces the slow timer)
+DistributedNotificationCenter.default().addObserver(
+    forName: NSNotification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String),
+    object: nil,
+    queue: .main
+) { _ in
     enforceLED()
 }
 
-// 3. The Wake Override: Wait for USB hardware to power up, then force the LED
+// 3. The Wake Override (Waits for USB hardware to power up)
 NSWorkspace.shared.notificationCenter.addObserver(
     forName: NSWorkspace.didWakeNotification,
     object: nil,
@@ -46,6 +50,3 @@ NSWorkspace.shared.notificationCenter.addObserver(
 
 RunLoop.main.run()
 EOF
-
-launchctl unload ~/Library/LaunchAgents/com.user.langled.plist 2>/dev/null
-launchctl load ~/Library/LaunchAgents/com.user.langled.plist
