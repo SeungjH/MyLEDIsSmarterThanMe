@@ -25,9 +25,23 @@ func enforceLED() {
 // 1. Run immediately on load
 enforceLED()
 
-// 2. The Brute Force Timer: Re-apply the LED state every 1 second, forever.
+// 2. The Brute Force Timer
 Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
     enforceLED()
+}
+
+// 3. The Wake Override: Wait for USB hardware to power up, then force the LED
+NSWorkspace.shared.notificationCenter.addObserver(
+    forName: NSWorkspace.didWakeNotification,
+    object: nil,
+    queue: nil
+) { _ in
+    let delays: [Double] = [1.0, 2.5]
+    for delay in delays {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            enforceLED()
+        }
+    }
 }
 
 RunLoop.main.run()
