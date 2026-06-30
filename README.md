@@ -6,6 +6,7 @@ A lightweight, zero-CPU background daemon for macOS that uses the physical Caps 
 * **Ultra-Low Resource Usage:** Despite the continuous background check, the compiled Swift script uses virtually 0% CPU.
 * **Instantaneous:** Hooks natively into Apple's `TIS` input sources for zero-latency switching.
 * **Native Compatibility:** Designed to work perfectly alongside the native macOS *"Use the Caps Lock key to switch to and from [Language]"* setting.
+* **LED stays on after sleep
 
 ## Side Notes
 - Tested on a Macbook Pro 16 inch (late 2024) running macOS Sequoia 15.6.1
