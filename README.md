@@ -25,7 +25,7 @@ cd MyLEDIsSmarterThanMe
 ```
 2. Make the installer executable and run it:
 ```bash
-chmod +x install.sh
+chmod +x install.sh uninstall.sh start_led.sh
 ./install.sh
 ```
 
