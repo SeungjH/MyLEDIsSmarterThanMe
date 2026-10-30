@@ -151,7 +151,7 @@ let inputObserver = DistributedNotificationCenter.default().addObserver(
     object: nil,
     queue: .main
 ) { _ in
-    enforceLED(force: true)
+    enforceLED()
 }
 
 // MARK: - Wake Observers
