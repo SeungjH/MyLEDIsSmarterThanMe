@@ -1,6 +1,7 @@
 import Foundation
 import Cocoa
 import Carbon
+import Darwin
 
 // MARK: - Config
 
@@ -11,8 +12,7 @@ let setledsPath = "\(home)/.local/bin/setleds"
 // 필요하면 "ABC" 같은 다른 layout suffix를 추가하면 됨.
 let ledOnInputSourceSuffixes = ["US"]
 
-let normalBackupInterval: TimeInterval = 60.0
-let screenSaverKeepAliveInterval: TimeInterval = 3.0
+let normalBackupInterval: TimeInterval = 300.0
 let setledsTimeout: TimeInterval = 1.0
 
 // MARK: - State
@@ -20,10 +20,6 @@ let setledsTimeout: TimeInterval = 1.0
 let ledQueue = DispatchQueue(label: "com.user.langled.ledQueue")
 
 var lastLEDArgument: String?
-var isRunningSetleds = false
-
-var keepAliveTimer: Timer?
-var keepAliveReasons = Set<String>()
 
 // MARK: - Logging
 
@@ -63,23 +59,28 @@ func desiredLEDArgument(for inputSourceID: String) -> String {
 
 // MARK: - LED Control
 
-func runSetLEDs(_ argument: String, force: Bool = false) {
+func runSetLEDs(_ argument: String, force: Bool = false, retriesRemaining: Int = 2) {
     ledQueue.async {
-        if isRunningSetleds {
-            log("setleds already running. Skipping.")
-            return
-        }
-
         if !force && lastLEDArgument == argument {
             return
         }
 
-        isRunningSetleds = true
-        defer { isRunningSetleds = false }
-
         let task = Process()
         task.executableURL = URL(fileURLWithPath: setledsPath)
-        task.arguments = [argument]
+        task.arguments = [argument, "-v"]
+
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("langled-\(UUID().uuidString).log")
+        guard FileManager.default.createFile(atPath: outputURL.path, contents: nil),
+              let outputHandle = try? FileHandle(forWritingTo: outputURL) else {
+            log("Failed to create temporary setleds output file")
+            return
+        }
+        defer {
+            try? outputHandle.close()
+            try? FileManager.default.removeItem(at: outputURL)
+        }
+        task.standardOutput = outputHandle
 
         do {
             try task.run()
@@ -91,25 +92,43 @@ func runSetLEDs(_ argument: String, force: Bool = false) {
         let deadline = Date().addingTimeInterval(setledsTimeout)
 
         while task.isRunning && Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.05)
+            Thread.sleep(forTimeInterval: 0.005)
         }
 
         if task.isRunning {
             log("setleds timed out. Terminating.")
             task.terminate()
-            return
-        }
 
-        if task.terminationStatus == 0 {
+            Thread.sleep(forTimeInterval: 0.1)
+            if task.isRunning {
+                kill(task.processIdentifier, SIGKILL)
+            }
+        }
+        task.waitUntilExit()
+
+        let output = (try? String(contentsOf: outputURL, encoding: .utf8)) ?? ""
+        let confirmed = output.split(whereSeparator: \Character.isWhitespace).contains(Substring(argument))
+
+        if task.terminationStatus == 0 && confirmed {
             lastLEDArgument = argument
             log("LED updated:", argument)
         } else {
-            log("setleds exited with status:", task.terminationStatus)
+            log(
+                "setleds failed or did not confirm", argument,
+                "status:", task.terminationStatus,
+                "output:", String(reflecting: output)
+            )
+
+            if retriesRemaining > 0 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    enforceLED(force: true, retriesRemaining: retriesRemaining - 1)
+                }
+            }
         }
     }
 }
 
-func enforceLED(force: Bool = false) {
+func enforceLED(force: Bool = false, retriesRemaining: Int = 2) {
     guard let inputSourceID = getCurrentInputSourceID() else {
         return
     }
@@ -118,43 +137,7 @@ func enforceLED(force: Bool = false) {
 
     log("Current input source:", inputSourceID, "->", argument)
 
-    runSetLEDs(argument, force: force)
-}
-
-// MARK: - Screensaver / Lock Keep Alive
-
-func startKeepAlive(reason: String) {
-    keepAliveReasons.insert(reason)
-
-    if keepAliveTimer == nil {
-        log("Starting LED keep-alive. Reason:", reason)
-
-        let timer = Timer(timeInterval: screenSaverKeepAliveInterval, repeats: true) { _ in
-            enforceLED(force: true)
-        }
-
-        keepAliveTimer = timer
-        RunLoop.main.add(timer, forMode: .common)
-    } else {
-        log("LED keep-alive already running. Added reason:", reason)
-    }
-
-    enforceLED(force: true)
-}
-
-func stopKeepAlive(reason: String) {
-    keepAliveReasons.remove(reason)
-
-    if keepAliveReasons.isEmpty {
-        log("Stopping LED keep-alive. Reason:", reason)
-
-        keepAliveTimer?.invalidate()
-        keepAliveTimer = nil
-
-        enforceLED(force: true)
-    } else {
-        log("Keep-alive still needed by:", keepAliveReasons)
-    }
+    runSetLEDs(argument, force: force, retriesRemaining: retriesRemaining)
 }
 
 // MARK: - Initial Sync
@@ -168,7 +151,7 @@ let inputObserver = DistributedNotificationCenter.default().addObserver(
     object: nil,
     queue: .main
 ) { _ in
-    enforceLED()
+    enforceLED(force: true)
 }
 
 // MARK: - Wake Observers
@@ -176,7 +159,7 @@ let inputObserver = DistributedNotificationCenter.default().addObserver(
 let wakeBlock: (Notification) -> Void = { _ in
     log("Wake detected. Re-syncing LED.")
 
-    for delay in [1.0, 3.0, 6.0, 10.0] {
+    for delay in [0.5, 2.0, 5.0, 10.0, 20.0, 30.0] {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
             enforceLED(force: true)
         }
@@ -197,45 +180,21 @@ let screenWakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
     using: wakeBlock
 )
 
-// MARK: - Screensaver Observers
-
-let screenSaverStartObserver = DistributedNotificationCenter.default().addObserver(
-    forName: NSNotification.Name("com.apple.screensaver.didstart"),
-    object: nil,
-    queue: .main
-) { _ in
-    log("Screensaver started.")
-    startKeepAlive(reason: "screensaver")
-}
-
-let screenSaverStopObserver = DistributedNotificationCenter.default().addObserver(
-    forName: NSNotification.Name("com.apple.screensaver.didstop"),
-    object: nil,
-    queue: .main
-) { _ in
-    log("Screensaver stopped.")
-    stopKeepAlive(reason: "screensaver")
-}
-
-// MARK: - Lock Screen Observers
-
-let screenLockedObserver = DistributedNotificationCenter.default().addObserver(
-    forName: NSNotification.Name("com.apple.screenIsLocked"),
-    object: nil,
-    queue: .main
-) { _ in
-    log("Screen locked.")
-    startKeepAlive(reason: "lockscreen")
-}
-
 let screenUnlockedObserver = DistributedNotificationCenter.default().addObserver(
     forName: NSNotification.Name("com.apple.screenIsUnlocked"),
     object: nil,
     queue: .main
 ) { _ in
     log("Screen unlocked.")
-    stopKeepAlive(reason: "lockscreen")
+    wakeBlock(Notification(name: NSNotification.Name("com.apple.screenIsUnlocked")))
 }
+
+let sessionActiveObserver = NSWorkspace.shared.notificationCenter.addObserver(
+    forName: NSWorkspace.sessionDidBecomeActiveNotification,
+    object: nil,
+    queue: .main,
+    using: wakeBlock
+)
 
 // MARK: - Normal Backup Sync
 

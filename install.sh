@@ -67,9 +67,15 @@ if ! command -v swiftc >/dev/null 2>&1; then
     exit 1
 fi
 
-echo "Compiling fast_led.swift..."
-swiftc "$SOURCE_SWIFT" -o "$BINARY_PATH"
-chmod +x "$BINARY_PATH"
+REBUILT=false
+if [ -x "$BINARY_PATH" ] && [ -f "$INSTALLED_SWIFT" ] && cmp -s "$SOURCE_SWIFT" "$INSTALLED_SWIFT"; then
+    echo "Swift source is unchanged. Keeping the existing binary."
+else
+    echo "Compiling fast_led.swift..."
+    swiftc "$SOURCE_SWIFT" -o "$BINARY_PATH"
+    chmod +x "$BINARY_PATH"
+    REBUILT=true
+fi
 
 # Keep a copy of the Swift source for debugging
 cp "$SOURCE_SWIFT" "$INSTALLED_SWIFT"
@@ -95,9 +101,6 @@ cat > "$PLIST_PATH" <<PLIST
 
     <key>KeepAlive</key>
     <true/>
-
-    <key>ProcessType</key>
-    <string>Background</string>
 
     <key>StandardOutPath</key>
     <string>$STATE_DIR/langled.out.log</string>
@@ -128,3 +131,10 @@ echo ""
 echo "Manual LED test:"
 echo "  $SETLEDS_PATH +caps"
 echo "  $SETLEDS_PATH -caps"
+
+if [ "$REBUILT" = true ]; then
+    echo ""
+    echo "macOS permission required:"
+    echo "  Add $BINARY_PATH to System Settings > Privacy & Security > Input Monitoring."
+    echo "  If langled is already listed, remove it and add it again because the binary changed."
+fi
